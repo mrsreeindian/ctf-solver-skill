@@ -1,0 +1,24 @@
+# Ignore installed copies (not the source)
+.agents/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Temp / output
+/tmp/
+*.log
