@@ -93,17 +93,18 @@ if [[ "$MODE" == "jwt" || "$MODE" == "all" ]]; then
   TOKEN=$(curl -sc /tmp/ctf/web_out/cookies.txt "$URL" 2>/dev/null; grep -iE 'JWT|token|eyJ' /tmp/ctf/web_out/cookies.txt | awk '{print $7}' | head -1)
   if [ -n "$TOKEN" ]; then
     echo "JWT found: $TOKEN"
-    python3 << PYEOF
-import base64, json
-token = "$TOKEN"
+    python3 - "$TOKEN" << 'PYEOF'
+import base64, json, sys
+token = sys.argv[1] if len(sys.argv) > 1 else ""
 parts = token.split('.')
 for i, part in enumerate(['Header','Payload']):
-    padded = parts[i] + '=='
-    try:
-        decoded = base64.urlsafe_b64decode(padded).decode()
-        print(f"{part}: {json.dumps(json.loads(decoded), indent=2)}")
-    except Exception as e:
-        print(f"{part} decode error: {e}")
+    if i < len(parts):
+        padded = parts[i] + '=' * (-len(parts[i]) % 4)
+        try:
+            decoded = base64.urlsafe_b64decode(padded).decode(errors='replace')
+            print(f"{part}: {json.dumps(json.loads(decoded), indent=2)}")
+        except Exception as e:
+            print(f"{part} decode error: {e}")
 PYEOF
     echo "Attack: alg:none"
     echo "  flask-unsign --decode --cookie '$TOKEN'"

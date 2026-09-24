@@ -3,9 +3,17 @@
 # CTF Solver — Steganography Helper
 # Usage: bash stego_helper.sh <file> [password]
 # ============================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/detect_platform.sh" ]; then
+  source "$SCRIPT_DIR/detect_platform.sh"
+fi
+
 FILE="$1"
 PASS="${2:-}"
 if [ -z "$FILE" ]; then echo "Usage: stego_helper.sh <file> [password]"; exit 1; fi
+
+WRITEUP_TARGET="${WRITEUP_DIR:-/tmp/ctf}"
+mkdir -p "$WRITEUP_TARGET" /tmp/ctf 2>/dev/null || true
 
 CYAN="\e[36m"; GREEN="\e[32m"; YELLOW="\e[33m"; RESET="\e[0m"
 hdr() { echo -e "\n${CYAN}══════ $1 ══════${RESET}\n"; }
@@ -45,11 +53,10 @@ if [[ "$LOWER_EXT" =~ ^(jpg|jpeg|png|bmp|gif|tiff|webp)$ ]]; then
   hdr "IMAGE: STEGSOLVE COLOR PLANES"
   echo "Manual: stegsolve (Java GUI) → analyze color bit planes"
   echo "Quick LSB check (Python):"
-  python3 - << 'PYEOF'
+  python3 - "$FILE" << 'PYEOF'
 import sys
 try:
     from PIL import Image
-    import os
     f = sys.argv[1] if len(sys.argv) > 1 else None
     if not f:
         print("  [Run with file arg to auto-check LSB]")
@@ -75,10 +82,26 @@ if [[ "$LOWER_EXT" =~ ^(wav|mp3|ogg|flac|aiff)$ ]]; then
 
   hdr "AUDIO: SPECTROGRAM HINT"
   echo "View spectrogram for hidden data: Audacity → Analyze → Spectrogram"
-  echo "Auto-spectrogram: python3 -c \""
-  echo "  import scipy.io.wavfile as wav; import matplotlib.pyplot as plt; import numpy as np"
-  echo "  rate, data = wav.read('$FILE'); plt.specgram(data, Fs=rate); plt.savefig('/tmp/ctf/spectrogram.png')\""
-  echo "Then view: /mnt/c/Users/Sreedev\\ M\\ Nair/Documents/CTF-Writeups/spectrogram.png"
+  python3 - "$FILE" "$WRITEUP_TARGET/spectrogram.png" << 'PYEOF'
+import sys
+try:
+    import scipy.io.wavfile as wav
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    audio_path = sys.argv[1]
+    out_path = sys.argv[2]
+    rate, data = wav.read(audio_path)
+    if data.ndim > 1:
+        data = data[:, 0]
+    plt.figure(figsize=(12, 4))
+    plt.specgram(data, Fs=rate)
+    plt.savefig(out_path)
+    print(f"  Spectrogram generated: {out_path}")
+except Exception as e:
+    print(f"  Spectrogram generation skipped / failed: {e}")
+PYEOF
+  echo "Spectrogram location: $WRITEUP_TARGET/spectrogram.png"
 
   hdr "AUDIO: DTMF TONES"
   echo "Decode DTMF: multimon-ng -t wav -a DTMF '$FILE' 2>/dev/null"

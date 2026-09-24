@@ -21,31 +21,34 @@ fi
 echo "Input (first 200 chars): ${CIPHERTEXT:0:200}"
 
 hdr "ENCODING DETECTION & DECODE"
-python3 << PYEOF
+python3 - "$CIPHERTEXT" << 'PYEOF'
 import base64, binascii, urllib.parse, re, sys
 
-ct = """$CIPHERTEXT"""
+ct = sys.argv[1] if len(sys.argv) > 1 else ""
 
 # Base64
 try:
     dec = base64.b64decode(ct.strip()).decode(errors='replace')
     if any(c.isprintable() for c in dec[:20]):
         print(f"[BASE64] Decoded: {dec[:200]}")
-except: pass
+except Exception:
+    pass
 
 # Hex
 try:
     if re.match(r'^[0-9a-fA-F\s]+$', ct.strip()):
         dec = bytes.fromhex(ct.strip().replace(' ','').replace('\n','')).decode(errors='replace')
         print(f"[HEX] Decoded: {dec[:200]}")
-except: pass
+except Exception:
+    pass
 
 # URL encoding
 try:
     dec = urllib.parse.unquote(ct.strip())
     if dec != ct.strip():
         print(f"[URL] Decoded: {dec[:200]}")
-except: pass
+except Exception:
+    pass
 
 # ROT13
 import codecs
@@ -60,18 +63,18 @@ for i in range(1, 26):
         print(f"[ROT{i}] Match found: {rotated[:100]}")
 
 # XOR single byte
-raw = ct.encode() if isinstance(ct, str) else ct
+raw = ct.encode('latin-1', errors='replace')
 for key in range(256):
     xord = bytes(b ^ key for b in raw[:min(len(raw),200)])
-    dec = xord.decode(errors='replace')
+    dec = xord.decode('latin-1', errors='replace')
     if re.search(r'flag\{|CTF\{|bi0s', dec, re.I):
         print(f"[XOR key=0x{key:02x}] Match: {dec[:100]}")
 PYEOF
 
 hdr "HASH IDENTIFICATION"
-python3 << PYEOF
-import re
-ct = """$CIPHERTEXT""".strip()
+python3 - "$CIPHERTEXT" << 'PYEOF'
+import re, sys
+ct = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
 hashlen = len(ct.replace(' ','').replace('\n',''))
 print(f"Length: {len(ct)}, Hex chars: {all(c in '0123456789abcdefABCDEF' for c in ct.replace(' ',''))}")
 if re.match(r'^[0-9a-fA-F]{32}$', ct): print("→ MD5 hash")
@@ -91,9 +94,9 @@ echo "  john --wordlist=/usr/share/wordlists/rockyou.txt '$INPUT'"
 
 hdr "RSA ATTACK (if RSA params found in file)"
 if [ -f "$INPUT" ]; then
-  python3 << PYEOF
-import re
-with open("$INPUT") as f:
+  python3 - "$INPUT" << 'PYEOF'
+import re, sys
+with open(sys.argv[1], 'r', errors='ignore') as f:
     content = f.read()
 
 # Look for RSA parameters
@@ -108,8 +111,8 @@ if e_match: print(f"Found e = {e_match.group(1)}")
 if c_match: print(f"Found c (len={len(c_match.group(1))} digits)")
 if p_match and q_match:
     print(f"Found p and q! Can compute private key directly.")
-    from Crypto.Util.number import inverse, long_to_bytes
     try:
+        from Crypto.Util.number import inverse, long_to_bytes
         p, q = int(p_match.group(1)), int(q_match.group(1))
         n = p * q
         e = int(e_match.group(1)) if e_match else 65537
@@ -130,11 +133,11 @@ PYEOF
 fi
 
 hdr "CLASSICAL CIPHER ANALYSIS"
-python3 << PYEOF
-import re
+python3 - "$CIPHERTEXT" << 'PYEOF'
+import re, sys
 from collections import Counter
 
-ct = """$CIPHERTEXT""".strip()
+ct = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
 letters = [c.upper() for c in ct if c.isalpha()]
 
 if letters:
@@ -163,21 +166,20 @@ else:
 PYEOF
 
 hdr "AES ECB BLOCK ANALYSIS"
-python3 << PYEOF
-import base64, binascii, re
-ct = """$CIPHERTEXT""".strip()
+python3 - "$CIPHERTEXT" << 'PYEOF'
+import base64, binascii, re, sys
+ct = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
 
-# Try to decode as hex or base64 to get bytes
 raw = None
 try:
     raw = bytes.fromhex(ct.replace(' ','').replace('\n',''))
     print("Input decoded as hex")
-except:
+except Exception:
     try:
         raw = base64.b64decode(ct)
         print("Input decoded as base64")
-    except:
-        raw = ct.encode()
+    except Exception:
+        raw = ct.encode('latin-1', errors='replace')
 
 if raw:
     print(f"Total bytes: {len(raw)}")

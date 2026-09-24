@@ -77,25 +77,33 @@ echo "--- GDB one-liners ---"
 echo "  gdb -q -ex 'b strcmp' -ex 'run <<< AAAAA' -ex 'x/s \$rdi' -ex 'x/s \$rsi' -ex 'q' ./$BIN"
 
 hdr "KNOWN PATTERN SEARCH (XOR flag decode)"
-python3 << PYEOF
+python3 - "$BIN" << 'PYEOF'
 import re, sys
 
+bin_path = sys.argv[1] if len(sys.argv) > 1 else ""
 try:
-    data = open("$BIN", "rb").read()
-except:
+    with open(bin_path, "rb") as f:
+        data = f.read()
+except Exception:
     sys.exit(0)
 
-# Look for XOR decode loop patterns (CTF classic)
-flag_bytes = [b for b in b"flag{"]
-for key in range(256):
-    xord = bytes(b ^ key for b in data[:200])
-    try:
-        decoded = xord.decode('ascii', errors='ignore')
-        if 'flag{' in decoded or 'CTF{' in decoded:
-            print(f"XOR key 0x{key:02x} reveals flag pattern in first 200 bytes!")
-            print(decoded[:100])
-    except:
-        pass
+# 1. Plaintext flag check in binary
+matches = re.findall(rb'[a-zA-Z0-9_]{1,15}\{[^}]{1,80}\}', data)
+for m in set(matches[:5]):
+    print(f"Plaintext flag string found: {m.decode(errors='replace')}")
+
+# 2. XOR pattern search across entire binary (up to 5MB)
+scan_buf = data[:5 * 1024 * 1024]
+flag_regex = re.compile(rb'(?:flag|ctf|bi0s)\{[^\x00-\x1f\x7f-\xff]{4,80}\}', re.I)
+found_keys = set()
+
+for key in range(1, 256):
+    xord = bytes(b ^ key for b in scan_buf)
+    found = flag_regex.findall(xord)
+    for f in found:
+        if key not in found_keys:
+            found_keys.add(key)
+            print(f"XOR key 0x{key:02x} reveals flag pattern: {f.decode(errors='replace')}")
 PYEOF
 
 hdr "REV HELPER COMPLETE"
