@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # ============================================================
 # CTF Solver — Platform Detection Helper
 # Outputs: WINDOWS | KALI | DEBIAN | DOCKER_LINUX | MACOS

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # ============================================================
 # CTF Solver Skill — Cross-Platform Installer
 # Supports: Linux (Debian/non-Debian), macOS
