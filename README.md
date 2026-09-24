@@ -26,30 +26,58 @@ Covers all 7 CTF categories using [wiki.bi0s.in](https://wiki.bi0s.in) methodolo
 
 ---
 
+## Platform Support
+
+| OS | Kali Linux via | Auto-install |
+|---|---|---|
+| **Windows** | WSL2 (`kali-linux` distro) preferred, Docker fallback | ✅ `install.ps1` |
+| **Linux — Debian/Ubuntu/Kali** | Native `apt` (no container needed) | ✅ `install.sh` |
+| **Linux — Arch / RHEL / Fedora / etc.** | Docker + `kalilinux/kali-rolling` container | ✅ `install.sh` |
+| **macOS** | Docker + `kalilinux/kali-rolling` container | ✅ `install.sh` |
+
+---
+
 ## Installation
 
-### Requirements
-- Windows 10/11 with WSL2
-- Kali Linux WSL distro (`wsl --install -d kali-linux`)
-- [Antigravity CLI](https://antigravity.dev) or Claude Code (with custom skills support)
-- PowerShell 7+
-
-### Install in One Command
+### Windows — One Command
 
 ```powershell
-# Clone the repo
 git clone https://github.com/mrsreeindian/ctf-solver-skill.git
 cd ctf-solver-skill
-
-# Run the installer
 pwsh -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-**The installer will ask:**
-1. **Global** — installs to `~\.gemini\config\skills\ctf-solver\` (available in all projects)
-2. **Project-scoped** — installs to `.agents\skills\ctf-solver\` in the current folder
+**The installer:**
+- Detects WSL Kali → falls back to Docker if not found
+- Asks: **Global** (all projects) or **Project-scoped** (current folder)
+- Optionally installs all CTF tools in Kali (~5-10 min)
+- Creates `Documents\CTF-Writeups\`
 
-Then optionally installs all CTF tools in Kali Linux WSL automatically.
+### Linux & macOS — One Command
+
+```bash
+git clone https://github.com/mrsreeindian/ctf-solver-skill.git
+cd ctf-solver-skill
+bash install.sh
+```
+
+**What it does per platform:**
+- **Kali / Debian / Ubuntu** → installs CTF tools natively via `apt` + `pip3`
+- **Arch / RHEL / Fedora / openSUSE** → installs Docker, pulls `kalilinux/kali-rolling`, creates a persistent container `ctf_kali`
+- **macOS** → installs Docker Desktop (via Homebrew if available), same container approach
+
+### One-liner (curl, no clone needed)
+
+```bash
+# Linux / macOS:
+curl -sSL https://raw.githubusercontent.com/mrsreeindian/ctf-solver-skill/master/install.sh | bash
+```
+
+### Global vs Project-Scoped
+
+The installer always asks:
+1. **Global** — `~/.gemini/config/skills/ctf-solver/` → available in **all** projects
+2. **Project-scoped** — `.agents/skills/ctf-solver/` in the **current** folder only
 
 ---
 

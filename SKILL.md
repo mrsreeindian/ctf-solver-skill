@@ -8,67 +8,108 @@ description: >-
   address (nc HOST PORT), an HTTP/HTTPS URL, or an IP:PORT target. This skill
   will triage, classify, exploit, and produce a full Markdown writeup with the
   flag and exploitation explanation grounded in wiki.bi0s.in methodology.
-  Uses WSL Kali Linux for all Linux-native tooling.
+  Works on Windows (WSL Kali), Linux (native Debian or Docker), and macOS (Docker).
 ---
 
 # CTF Solver — Master Playbook
 
 > [!IMPORTANT]
 > **Before anything else**: Determine challenge delivery type:
-> - **Local file** → copy to WSL via `wsl -d kali-linux -- cp /mnt/c/path/to/file /tmp/chal`
+> - **Local file** → copy to Kali workspace (see Phase 0)
 > - **Remote netcat** → `nc HOST PORT` or pwntools `remote('HOST', PORT)`
-> - **HTTP/HTTPS URL or IP:PORT** → `curl -sv http://IP:PORT` or use the browser
+> - **HTTP/HTTPS URL or IP:PORT** → `curl -sv http://IP:PORT`
 > - **Online CTF platform** → open the URL, read the challenge, download attached files
-
-## Global Constants
-
-```bash
-WRITEUP_DIR="/mnt/c/Users/Sreedev M Nair/Documents/CTF-Writeups"
-KALI_CMD="wsl -d kali-linux -- bash -c"
-WSL_TMP="/tmp/ctf"
-```
 
 ---
 
-## PHASE 0 — Environment Setup
+## PHASE 0 — Platform Detection & Setup
 
-Run this ONCE per session (or when tools are missing):
+### Step 0A: Detect the OS
 
+Run this first to know which execution pattern to use:
+
+**On Windows (PowerShell):**
 ```powershell
-wsl -d kali-linux -- bash "/mnt/c/Users/Sreedev M Nair/Documents/Projects/ctf-solver-skill/scripts/setup_tools.sh"
+$IsWin = $true
+$KaliCmd = { param($cmd) wsl -d kali-linux -- bash -c $cmd }
+$WriteupDir = "$env:USERPROFILE\Documents\CTF-Writeups"
+New-Item -ItemType Directory -Force $WriteupDir | Out-Null
 ```
 
-Also ensure the writeup folder exists on Windows:
-```powershell
-New-Item -ItemType Directory -Force "C:\Users\Sreedev M Nair\Documents\CTF-Writeups"
+**On Linux/macOS (bash) — detect automatically:**
+```bash
+source /PATH/TO/SKILL/scripts/detect_platform.sh
+echo "Platform: $PLATFORM | Exec: $EXEC_METHOD | Writeups: $WRITEUP_DIR"
 ```
+
+### Step 0B: Run Setup (once per machine)
+
+```bash
+# Windows:
+wsl -d kali-linux -- bash "/mnt/c/path/to/scripts/setup_tools.sh"
+
+# Linux (Debian/Kali) — native:
+bash /PATH/TO/SKILL/scripts/setup_tools.sh
+
+# Linux (non-Debian) or macOS — Docker:
+bash /PATH/TO/SKILL/scripts/kali_exec.sh --status   # check container
+# Container is auto-created + tools installed on first use of kali_exec.sh
+```
+
+### Step 0C: Platform Execution Reference Table
+
+| OS | Kali available via | Run command pattern |
+|---|---|---|
+| **Windows** | WSL (`kali-linux` distro) | `wsl -d kali-linux -- bash -c "CMD"` |
+| **Linux (Kali)** | Native | `bash -c "CMD"` |
+| **Linux (Debian/Ubuntu)** | Native apt | `bash -c "CMD"` |
+| **Linux (Arch/RHEL/etc.)** | Docker container `ctf_kali` | `docker exec ctf_kali bash -c "CMD"` |
+| **macOS** | Docker container `ctf_kali` | `docker exec ctf_kali bash -c "CMD"` |
+| **Any (universal)** | `kali_exec.sh` wrapper | `bash scripts/kali_exec.sh "CMD"` |
+
+> [!TIP]
+> Use `bash scripts/kali_exec.sh "CMD"` on Linux/macOS — it auto-routes to native or Docker.
+> On Windows always use `wsl -d kali-linux -- bash -c "CMD"`.
 
 ---
 
 ## PHASE 1 — Triage & Category Detection
 
-### Step 1A: Prepare the Challenge
+### Step 1A: Prepare the Challenge File
 
-```bash
-# For a local file (Windows path):
+**Windows:**
+```powershell
 wsl -d kali-linux -- bash -c "mkdir -p /tmp/ctf && cp '/mnt/c/path/to/challenge' /tmp/ctf/chal"
-
-# For a URL download:
-wsl -d kali-linux -- bash -c "mkdir -p /tmp/ctf && cd /tmp/ctf && wget 'http://CHALLENGE_URL' -O chal"
-
-# For a web target (no file):
-# → Proceed directly to PHASE 2 with category=web
+# Download from URL:
+wsl -d kali-linux -- bash -c "mkdir -p /tmp/ctf && wget 'http://CHALLENGE_URL' -O /tmp/ctf/chal"
 ```
 
-### Step 1B: Run Auto-Triage Script
-
+**Linux/macOS:**
 ```bash
-wsl -d kali-linux -- bash "/mnt/c/Users/Sreedev M Nair/Documents/Projects/ctf-solver-skill/scripts/triage.sh" "/tmp/ctf/chal"
+mkdir -p /tmp/ctf && cp /path/to/challenge /tmp/ctf/chal
+# Download from URL:
+mkdir -p /tmp/ctf && wget "http://CHALLENGE_URL" -O /tmp/ctf/chal
+# Via Docker (if using container):
+docker cp /path/to/challenge ctf_kali:/tmp/ctf/chal
+```
+
+### Step 1B: Run Auto-Triage
+
+**Windows:**
+```powershell
+wsl -d kali-linux -- bash "/mnt/PATH/TO/SKILL/scripts/triage.sh" "/tmp/ctf/chal"
+```
+
+**Linux/macOS:**
+```bash
+bash /PATH/TO/SKILL/scripts/kali_exec.sh -f /PATH/TO/SKILL/scripts/triage.sh /tmp/ctf/chal
+# OR if native:
+bash /PATH/TO/SKILL/scripts/triage.sh /tmp/ctf/chal
+# OR via Docker directly:
+docker exec ctf_kali bash -c "bash /tmp/triage.sh /tmp/ctf/chal"
 ```
 
 ### Step 1C: Classify the Category
-
-Analyze triage output using these heuristics:
 
 | Signal | Category |
 |---|---|
@@ -86,7 +127,7 @@ Analyze triage output using these heuristics:
 
 ## PHASE 2 — Category-Specific Playbook
 
-After classification, **read the corresponding reference file** and execute that playbook:
+After classification, **read the corresponding reference file** and execute:
 
 - **Pwn** → Read `references/pwn.md` + run `scripts/pwn_helper.sh`
 - **Rev** → Read `references/rev.md` + run `scripts/rev_helper.sh`
@@ -102,46 +143,49 @@ After classification, **read the corresponding reference file** and execute that
 
 ### Recognizing a Flag
 
-Most CTF flags match these patterns:
 ```
-flag{...}          # Generic
-CTF{...}           # Event-specific
-picoCTF{...}       # picoCTF
-bi0sCTF{...}       # bi0sCTF
-HTB{...}           # HackTheBox
-DUCTF{...}         # DownUnder CTF
+flag{...}     picoCTF{...}   bi0sCTF{...}
+CTF{...}      HTB{...}       DUCTF{...}
 ```
 
-Search for flag patterns in output:
+Search output for flag patterns:
 ```bash
-wsl -d kali-linux -- bash -c "strings /tmp/ctf/output 2>/dev/null | grep -iE '[a-zA-Z0-9_]+\{[^}]+\}'"
+# Windows:
+wsl -d kali-linux -- bash -c "strings /tmp/ctf/output | grep -iE '[a-zA-Z0-9_]+\{[^}]+\}'"
+
+# Linux/macOS (native or Docker via kali_exec):
+bash scripts/kali_exec.sh "strings /tmp/ctf/output | grep -iE '[a-zA-Z0-9_]+\{[^}]+\}'"
 ```
-
-### Validate the Flag
-
-- Confirm the flag string is complete (opening `{` and closing `}`)
-- If the challenge is on a platform, submit it to verify
-- If the flag contains non-printable chars, check encoding (base64, hex)
 
 ---
 
 ## PHASE 4 — Writeup Generation
 
-After finding the flag, generate a full Markdown writeup using `templates/writeup_template.md`. Save it at:
+Save writeup to the platform-specific Documents folder:
 
-**Windows path**: `C:\Users\Sreedev M Nair\Documents\CTF-Writeups\<CTF_NAME>_<CHALLENGE_NAME>.md`
-**WSL path**: `/mnt/c/Users/Sreedev M Nair/Documents/CTF-Writeups/<CTF_NAME>_<CHALLENGE_NAME>.md`
+| OS | Writeup folder |
+|---|---|
+| Windows | `C:\Users\<you>\Documents\CTF-Writeups\` |
+| Linux / macOS | `~/Documents/CTF-Writeups/` |
 
-Save via WSL:
+**Windows:**
+```powershell
+$writeup = @"
+[writeup markdown content]
+"@
+$writeup | Out-File "$env:USERPROFILE\Documents\CTF-Writeups\CTFNAME_CHALNAME.md" -Encoding utf8
+```
+
+**Linux/macOS:**
 ```bash
-wsl -d kali-linux -- bash -c "cat > '/mnt/c/Users/Sreedev M Nair/Documents/CTF-Writeups/CTFNAME_CHALNAME.md' << 'WRITEUP'
-[writeup content here]
-WRITEUP"
+cat > "$HOME/Documents/CTF-Writeups/CTFNAME_CHALNAME.md" << 'EOF'
+[writeup markdown content]
+EOF
 ```
 
 Also create a Markdown **artifact** in the conversation so the user sees it immediately.
 
-The writeup MUST include:
+**Writeup MUST include:**
 1. Challenge name, event, category, difficulty
 2. The **flag** prominently at the top
 3. Initial triage output
@@ -152,36 +196,62 @@ The writeup MUST include:
 
 ---
 
-## WSL Execution Pattern
+## Universal Execution Patterns
 
-Always use this pattern to run commands in Kali:
+### Windows (PowerShell)
 ```powershell
-# Single command:
-wsl -d kali-linux -- bash -c "COMMAND_HERE"
+# Single command in Kali WSL:
+wsl -d kali-linux -- bash -c "COMMAND"
 
-# Multi-line script:
-wsl -d kali-linux -- bash -c "
-cd /tmp/ctf
-COMMAND1
-COMMAND2
-"
+# Run a skill script:
+wsl -d kali-linux -- bash "/mnt/c/.../scripts/SCRIPT.sh" ARG1
 
-# Run a script file:
-wsl -d kali-linux -- bash "/mnt/c/Users/Sreedev M Nair/Documents/Projects/ctf-solver-skill/scripts/SCRIPT.sh" ARG1 ARG2
+# Copy file to WSL:
+wsl -d kali-linux -- bash -c "cp '/mnt/c/path/to/file' /tmp/ctf/chal"
+```
 
-# Interactive GDB session (requires Windows Terminal):
-wsl -d kali-linux -- bash -c "cd /tmp/ctf && gdb ./chal"
+### Linux / macOS (bash)
+```bash
+# Via kali_exec.sh wrapper (auto-routes native or Docker):
+bash /PATH/TO/SKILL/scripts/kali_exec.sh "COMMAND"
+
+# Run a script via wrapper:
+bash /PATH/TO/SKILL/scripts/kali_exec.sh -f /PATH/TO/SKILL/scripts/SCRIPT.sh ARG1
+
+# Directly on Debian/Kali (native):
+bash -c "COMMAND"
+
+# Directly via Docker (non-Debian Linux / macOS):
+docker exec ctf_kali bash -c "COMMAND"
+
+# Copy file to Docker workspace:
+docker cp /local/path ctf_kali:/tmp/ctf/chal
+```
+
+### Interactive Kali Shell
+```bash
+# Windows:
+wsl -d kali-linux
+
+# Linux/macOS (Docker):
+docker exec -it ctf_kali bash
+
+# Linux/macOS (via wrapper):
+bash /PATH/TO/SKILL/scripts/kali_exec.sh --interactive
 ```
 
 ---
 
 ## Error Handling
 
-| Error | Fix |
-|---|---|
-| `ModuleNotFoundError: pwn` | Run `setup_tools.sh` again |
-| WSL not started | `wsl -d kali-linux` (starts it) |
-| Tool not found | `wsl -d kali-linux -- bash -c "sudo apt install -y TOOLNAME"` |
-| Permission denied on script | `wsl -d kali-linux -- bash -c "chmod +x /tmp/ctf/chal"` |
-| Writeup folder missing | `New-Item -ItemType Directory -Force "C:\Users\Sreedev M Nair\Documents\CTF-Writeups"` |
-| ASLR makes addresses change | Use `wsl -d kali-linux -- bash -c "echo 0 | sudo tee /proc/sys/kernel/randomize_va_space"` temporarily |
+| Error | Platform | Fix |
+|---|---|---|
+| `ModuleNotFoundError: pwn` | Any | Re-run `setup_tools.sh` |
+| WSL not started | Windows | `wsl -d kali-linux` (starts it) |
+| `Cannot connect to Docker` | Linux/macOS | Start Docker Desktop / `sudo systemctl start docker` |
+| `Container ctf_kali not found` | Linux/macOS | Run `kali_exec.sh --status` to auto-create |
+| Tool not found (native) | Debian | `sudo apt install -y TOOL` |
+| Tool not found (Docker) | Linux/macOS | `docker exec ctf_kali bash -c "apt install -y TOOL"` |
+| Permission denied on script | Any | `chmod +x SCRIPT.sh` |
+| ASLR randomizes addresses | Any | `echo 0 \| sudo tee /proc/sys/kernel/randomize_va_space` |
+| Writeup folder missing | Linux/macOS | `mkdir -p ~/Documents/CTF-Writeups` |
