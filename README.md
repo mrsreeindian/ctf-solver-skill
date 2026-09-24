@@ -5,10 +5,13 @@
 ![CTF Solver](https://img.shields.io/badge/Antigravity-Skill-blue?style=for-the-badge&logo=google)
 ![Categories](https://img.shields.io/badge/Categories-7-green?style=for-the-badge)
 ![WSL](https://img.shields.io/badge/WSL-Kali%20Linux-red?style=for-the-badge&logo=linux)
+![bi0s-wiki](https://img.shields.io/badge/Methodology-bi0s--wiki-purple?style=for-the-badge&logo=gitbook)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
 **A fully automated CTF challenge solver skill for [Google Antigravity](https://antigravity.dev) and Claude Code.**  
 Covers all 7 CTF categories using [wiki.bi0s.in](https://wiki.bi0s.in) methodology, with WSL Kali Linux tooling, auto-triage, and structured writeup generation.
+
+📖 **[Explore the bi0s-wiki Knowledge Base & Playbooks](wiki/Home.md)**
 
 </div>
 
@@ -201,9 +204,12 @@ ctf-solver-skill/
 
 ---
 
-## Methodology
+## Methodology & Wiki
 
 This skill follows the **[bi0s wiki](https://wiki.bi0s.in)** methodology from team bi0s (Amrita Vishwa Vidyapeetham) — one of India's top CTF teams and creators of bi0sCTF.
+
+For the complete guide and cross-category knowledge base, see the repository wiki:
+📖 **[bi0s-wiki Playbook & Knowledge Base](wiki/Home.md)**
 
 Each reference file mirrors the structured approach taught at bi0s for:
 - Systematic triage before any exploitation
